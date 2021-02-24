@@ -1,13 +1,24 @@
+
 use amethyst::{
-    assets::{AssetStorage, Loader, Handle},
-    core::transform::Transform,
-    ecs::{Component, DenseVecStorage},
+    assets::{AssetStorage, Handle, Loader},
+    core::{math::Vector2, timing::Time, transform::{Transform, TransformBundle}},
+    input::InputBundle,
+    ecs::{Component, DenseVecStorage,DispatcherBuilder, World},
     prelude::*,
-    renderer::{Camera, ImageFormat, SpriteRender, SpriteSheet, SpriteSheetFormat, Texture},
+    renderer::{
+        plugins::{RenderFlat2D, RenderToWindow},
+        types::DefaultBackend,
+        rendy::hal::command::ClearColor,sprite::Sprites,
+        Camera, ImageFormat, RenderingBundle, SpriteRender, SpriteSheet, SpriteSheetFormat,
+        Texture,
+    },
+    ui::{RenderUi, UiBundle,Anchor, LineMode, UiText, UiTransform},
+    utils::application_root_dir,
+    error::Error,
 };
 
-pub const ARENA_HEIGHT: f32 = 100.0;
-pub const ARENA_WIDTH: f32 = 100.0;
+pub const ARENA_HEIGHT: f32 = 1000.0;
+pub const ARENA_WIDTH: f32 = 1000.0;
 
 pub fn initialise_camera(world: &mut World) {
     // Setup camera in a way that our screen covers whole arena and (0, 0) is in the bottom left.

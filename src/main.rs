@@ -4,14 +4,21 @@ mod window;
 use crate::window::*;
 
 use amethyst::{
+    assets::{AssetStorage, Handle, Loader},
+    core::{math::Vector2, timing::Time, transform::{Transform, TransformBundle}},
+    input::InputBundle,
+    ecs::{Component, DenseVecStorage,DispatcherBuilder, World},
     prelude::*,
     renderer::{
         plugins::{RenderFlat2D, RenderToWindow},
         types::DefaultBackend,
-        RenderingBundle,
+        rendy::hal::command::ClearColor,sprite::Sprites,
+        Camera, ImageFormat, RenderingBundle, SpriteRender, SpriteSheet, SpriteSheetFormat,
+        Texture,
     },
-    core::math::Vector2,
+    ui::{RenderUi, UiBundle,Anchor, LineMode, UiText, UiTransform},
     utils::application_root_dir,
+    error::Error,
 };
 
 pub struct Player;
@@ -20,13 +27,36 @@ impl SimpleState for Player {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         let world = data.world;
 
+        let sprite_sheet_handle = load_sprite_sheet(world);
+
         world.register::<Boid>();
-    
-        initialise_boid(world, Vector2::new(0.5,0.5));
+
+        initialise_boid(world, Vector2::new(500.0, 500.0), sprite_sheet_handle);
         initialise_camera(world);
     }
 }
 
+fn load_sprite_sheet(world: &mut World) -> Handle<SpriteSheet> {
+    let texture_handle = {
+        let loader = world.read_resource::<Loader>();
+        let texture_storage = world.read_resource::<AssetStorage<Texture>>();
+        loader.load(
+            "texture/bird_3_robin.png",
+            ImageFormat::default(),
+            (),
+            &texture_storage,
+        )
+    };
+
+    let loader = world.read_resource::<Loader>();
+    let sprite_sheet_store = world.read_resource::<AssetStorage<SpriteSheet>>();
+    loader.load(
+        "texture/bird_3_robin.ron", // Here we load the associated ron file
+        SpriteSheetFormat(texture_handle),
+        (),
+        &sprite_sheet_store,
+    )
+}
 
 fn main() -> amethyst::Result<()> {
     amethyst::start_logger(Default::default());
@@ -37,16 +67,17 @@ fn main() -> amethyst::Result<()> {
     let assets_dir = app_root.join("assets");
 
     let game_data = GameDataBuilder::default()
-    .with_bundle(
-        RenderingBundle::<DefaultBackend>::new()
-            // The RenderToWindow plugin provides all the scaffolding for opening a window and drawing on it
-            .with_plugin(
-                RenderToWindow::from_config_path(display_config_path)?
-                    .with_clear([0.0, 0.0, 0.0, 1.0]), // background color
-            )
-            // RenderFlat2D plugin is used to render entities with a `SpriteRender` component.
-            .with_plugin(RenderFlat2D::default()),
-    )?;
+        .with_bundle(TransformBundle::new())?
+        .with_bundle(
+            RenderingBundle::<DefaultBackend>::new()
+                // The RenderToWindow plugin provides all the scaffolding for opening a window and drawing on it
+                .with_plugin(
+                    RenderToWindow::from_config_path(display_config_path)?
+                        .with_clear([0.0, 0.0, 0.0, 1.0]), // background color
+                )
+                // RenderFlat2D plugin is used to render entities with a `SpriteRender` component.
+                .with_plugin(RenderFlat2D::default()),
+        )?;
 
     let mut game = Application::new(assets_dir, Player, game_data)?;
     game.run();

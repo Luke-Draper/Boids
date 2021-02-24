@@ -2,10 +2,12 @@ mod boid;
 use crate::boid::*;
 mod window;
 use crate::window::*;
+mod components;
+mod utilities;
 
 use amethyst::{
     assets::{AssetStorage, Handle, Loader},
-    core::{math::Vector2, timing::Time, transform::{Transform, TransformBundle}},
+    core::{math::Vector3, timing::Time, transform::{Transform, TransformBundle}},
     input::InputBundle,
     ecs::{Component, DenseVecStorage,DispatcherBuilder, World},
     prelude::*,
@@ -31,7 +33,7 @@ impl SimpleState for Player {
 
         world.register::<Boid>();
 
-        initialise_boid(world, Vector2::new(500.0, 500.0), sprite_sheet_handle);
+        initialise_boid(world, Vector3::new(500.0, 500.0, 0), sprite_sheet_handle);
         initialise_camera(world);
     }
 }
@@ -64,10 +66,15 @@ fn main() -> amethyst::Result<()> {
     let app_root = application_root_dir()?;
     let config_path = app_root.join("config");
     let display_config_path = config_path.join("display.ron");
+    let binding_path = config_path.join("bindings.ron");
     let assets_dir = app_root.join("assets");
+
+    let input_bundle = InputBundle::<StringBindings>::new()
+    .with_bindings_from_file(binding_path)?;
 
     let game_data = GameDataBuilder::default()
         .with_bundle(TransformBundle::new())?
+        .with_bundle(input_bundle)?
         .with_bundle(
             RenderingBundle::<DefaultBackend>::new()
                 // The RenderToWindow plugin provides all the scaffolding for opening a window and drawing on it

@@ -1,25 +1,31 @@
-use super::super::boid::*;
-use super::super::window::*;
 
 use amethyst::{
     assets::{AssetStorage, Handle, Loader},
-    core::{math::Vector3, timing::Time, transform::{Transform, TransformBundle, SystemDesc}},
+    core::{
+        math::Vector3,
+        timing::Time,
+        transform::{Transform, TransformBundle},
+    },
     derive::SystemDesc,
+    ecs::{
+        Component, DenseVecStorage, DispatcherBuilder, Join, Read, ReadStorage, System, SystemData,
+        World, WriteStorage,
+    },
+    error::Error,
     input::{InputBundle, InputHandler, StringBindings},
-    ecs::{Join, Read, ReadStorage, System, SystemData, WriteStorage, Component, DenseVecStorage, DispatcherBuilder, World},
     prelude::*,
     renderer::{
         plugins::{RenderFlat2D, RenderToWindow},
+        rendy::hal::command::ClearColor,
+        sprite::Sprites,
         types::DefaultBackend,
-        rendy::hal::command::ClearColor,sprite::Sprites,
         Camera, ImageFormat, RenderingBundle, SpriteRender, SpriteSheet, SpriteSheetFormat,
         Texture,
     },
-    ui::{RenderUi, UiBundle,Anchor, LineMode, UiText, UiTransform},
+    ui::{Anchor, LineMode, RenderUi, UiBundle, UiText, UiTransform},
     utils::application_root_dir,
-    error::Error,
 };
-
+/*
 #[derive(SystemDesc)]
 pub struct BoidPlayerCharacterSystem;
 
@@ -33,21 +39,28 @@ impl<'s> System<'s> for BoidPlayerCharacterSystem {
         Read<'s, InputHandler<StringBindings>>,
     );
 
-    fn run(&mut self, (mut transforms, player_controlled, boids, wings, velocities, input): Self::SystemData) {
-
-        for (transform, player_control, boid, wing, velocity) in (&mut transforms, &player_controlled, &boids, &wings, &velocities).join() {
-            
+    fn run(
+        &mut self,
+        (mut transforms, player_controlled, boids, wings, velocities, input): Self::SystemData,
+    ) {
+        for (transform, player_control, boid, wing, velocity) in (
+            &mut transforms,
+            &player_controlled,
+            &boids,
+            &wings,
+            &velocities,
+        )
+            .join()
+        {
             let x = input.axis_value("x").unwrap_or(0.0);
             let y = input.axis_value("y").unwrap_or(0.0);
             let mut angle_update = false;
-            if (x>0.001) || (x<-0.001)||(y>0.001) || (y<-0.001) {
+            if (x > 0.001) || (x < -0.001) || (y > 0.001) || (y < -0.001) {
                 angle_update = true;
             }
             let flap_key = input.action_is_down("flap").unwrap_or(false);
 
-            if let Some((x, y)) = input.mouse_position() {
-                
-            }
+            if let Some((x, y)) = input.mouse_position() {}
 
             if let Some(mv_amount) = movement {
                 if mv_amount != 0.0 {
@@ -61,3 +74,4 @@ impl<'s> System<'s> for BoidPlayerCharacterSystem {
         }
     }
 }
+*/

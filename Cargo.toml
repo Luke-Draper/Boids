@@ -1,5 +1,5 @@
 [package]
-name = "Boids"
+name = "boids"
 version = "0.1.0"
 authors = ["Luke Draper <lukepdraper@gmail.com>"]
 edition = "2018"
@@ -9,4 +9,4 @@ edition = "2018"
 [dependencies]
 amethyst = { version = "0.15.3", features = ["metal"] }
 rand = "0.8.3"
-
+serde = "1.0.123"

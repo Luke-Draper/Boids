@@ -1,30 +1,28 @@
+use super::player_control::PlayerControl;
+use super::velocity::Velocity;
 use amethyst::{
-    assets::{AssetStorage, Handle, Loader},
-    core::{math::Vector3, timing::Time, transform::{Transform, TransformBundle}},
-    input::InputBundle,
-    ecs::{Component, DenseVecStorage,DispatcherBuilder,NullStorage, World},
+    assets::AssetLoaderSystemData,
+    core::{math::Vector3, transform::Transform},
+    ecs::{prelude::EntityBuilder, Component, VecStorage, World},
     prelude::*,
     renderer::{
-        plugins::{RenderFlat2D, RenderToWindow},
-        types::DefaultBackend,
-        rendy::hal::command::ClearColor,sprite::Sprites,
-        Camera, ImageFormat, RenderingBundle, SpriteRender, SpriteSheet, SpriteSheetFormat,
-        Texture,
+        rendy::mesh::{Normal, Position, Tangent, TexCoord},
+        shape::Shape,
+        Material, MaterialDefaults, Mesh,
     },
-    ui::{RenderUi, UiBundle,Anchor, LineMode, UiText, UiTransform},
-    utils::application_root_dir,
-    error::Error,
 };
-use super::velocity::Velocity;
-use super::player_control::PlayerControl;
+use serde::{Deserialize, Serialize};
 
 pub enum WingFlapStage {
     Up,
     Middle,
     Down,
-    Ground
+    Ground,
 }
+
+#[derive(Debug, Deserialize, Serialize)]
 pub enum BoidSpecies {
+    Test,
     Sparrow,
     Robin,
     Cardinal,
@@ -32,47 +30,34 @@ pub enum BoidSpecies {
     Eagle,
     Duck,
     Goose,
-    Falcon
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct BoidSpeciesStats {
-    pub species: BoidSpecies,
-    pub vision_angle: f32, // angle that it can detect other entites
-    pub vision_radius: f32, // range it can detect other entities
-    pub max_altitude: f32, // maximum flight altitude
-    pub max_turn_angle: f32, // maximum angle it can change per second
-    pub max_pitch_turn_angle: f32, // maximum angle it can change pitch per second
-    pub max_pitch: f32, // maximum lift angle
-    pub min_pitch: f32, // minimum lift angle
-    pub flap_vector: f32, // angle a flap applies force
-    pub flap_magnitude: f32, // force a flap applies
-    pub flap_cooldown: f32, // cooldown from flap till another can be performed
-    pub glide_decay: f32, // altitude lost per second while gliding
-    pub max_hunger; f32, // maximum hunger, hunger = 0 makes seek food immediately
-    pub flap_hunger_reduction; f32, // amount hunger reduced when flapping
-    pub sleep_time; f32, // time spent sleeping when caught in a sleep trap
-    pub step_distance; f32, // distance per step
-    pub step_cooldown: f32, // cooldown from step till another can be performed
+    Falcon,
 }
 
 // states: ground : stepping, standing, landing, taking off, eating, sleeping, captured
 //         flying : flapping, diving, gliding : attack
 pub struct Boid {
-    flap_stage: WingFlapStage,
-    flap_time: f64, // Time.absolute_time_seconds() // time since game start adjusted for game speed
-    step_time: f64, // Time.absolute_time_seconds() // time since game start adjusted for game speed
-    hunger: f32,
-    flock_id: u8, // separation is applied regardless of flock id but cohesion and alignment are only applied to the same flock
+    //    pub species: BoidSpecies,
+    pub flap_stage: WingFlapStage,
+    pub flap_time: f64, // Time.absolute_time_seconds() // time since game start adjusted for game speed
+    pub step_time: f64, // Time.absolute_time_seconds() // time since game start adjusted for game speed
+    pub hunger: f32,
+    pub flock_id: u8, // separation is applied regardless of flock id but cohesion and alignment are only applied to the same flock
 }
 impl Component for Boid {
     type Storage = VecStorage<Self>;
 }
 
-pub fn initialize_boid(
-    world: &mut World
-) {
-    initialize_boid(world, Vector3::new(100.0, 100.0, 0.0), Velocity {0.0, Vector3::new(0.0, 0.0, 0.0)}, 0.0, 0.0)
+pub fn initialize_boid_default(world: &mut World) {
+    initialize_boid(
+        world,
+        Vector3::new(0.0, 0.0, 0.0),
+        Velocity {
+            velocity: 0.0,
+            direction: Vector3::new(0.0, 0.0, 0.0),
+        },
+        0.0,
+        0.0,
+    )
 }
 
 pub fn initialize_boid(
@@ -85,10 +70,17 @@ pub fn initialize_boid(
     setup_boid(world, position, velocity, direction, pitch).build();
 }
 
-pub fn initialize_player_boid(
-    world: &mut World
-) {
-    initialize_player_boid(world, Vector3::new(100.0, 100.0, 0.0), Velocity {0.0, Vector3::new(0.0, 0.0, 0.0)}, 0.0, 0.0)
+pub fn initialize_player_boid_default(world: &mut World) {
+    initialize_player_boid(
+        world,
+        Vector3::new(0.0, 0.0, 0.0),
+        Velocity {
+            velocity: 0.0,
+            direction: Vector3::new(0.0, 0.0, 0.0),
+        },
+        0.0,
+        0.0,
+    )
 }
 
 pub fn initialize_player_boid(
@@ -98,19 +90,21 @@ pub fn initialize_player_boid(
     direction: f32,
     pitch: f32,
 ) {
-    setup_boid(world, position, velocity, direction, pitch).with(PlayerControl {}).build();
+    setup_boid(world, position, velocity, direction, pitch)
+        .with(PlayerControl {})
+        .build();
 }
 
-fn setup_boid (
+fn setup_boid(
     world: &mut World,
     position: Vector3<f32>,
     velocity: Velocity,
     direction: f32,
     pitch: f32,
-) {
+) -> EntityBuilder<'_> {
     let mut trans = Transform::default();
     trans
-        .set_translation_xyz(position[0],position[1],position[2])
+        .set_translation_xyz(position[0], position[1], position[2])
         .set_rotation_euler(direction, pitch, 0.0);
 
     let mesh = world.exec(|loader: AssetLoaderSystemData<'_, Mesh>| {
@@ -134,7 +128,15 @@ fn setup_boid (
 
     world
         .create_entity()
+        .with(mesh)
+        .with(material)
         .with(trans)
         .with(velocity)
-        .with(Boid {WingFlapStage::Up, 0.0})
+        .with(Boid {
+            flap_stage: WingFlapStage::Up,
+            flap_time: 0.0,
+            step_time: 0.0,
+            hunger: 0.0,
+            flock_id: 0,
+        })
 }

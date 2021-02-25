@@ -1,35 +1,50 @@
 mod components;
+mod configurations;
+mod systems;
 
 use amethyst::{
-    assets::{AssetStorage, Handle, Loader, AssetLoaderSystemData},
-    core::{math::Vector3, timing::Time, transform::{Transform, TransformBundle}},
+    assets::{AssetLoaderSystemData, AssetStorage, Handle, Loader},
+    core::{
+        math::Vector3,
+        timing::Time,
+        transform::{Transform, TransformBundle},
+    },
+    ecs::{Component, DenseVecStorage, DispatcherBuilder, World},
+    error::Error,
     input::{InputBundle, StringBindings},
-    ecs::{Component, DenseVecStorage,DispatcherBuilder, World},
     prelude::*,
     renderer::{
-        plugins::{RenderPbr3D, RenderToWindow},
-        types::DefaultBackend,
-        rendy::{mesh::*, util::types::vertex::PosNormTangTex},
-        shape::Shape,
         light::{Light, PointLight},
         palette::rgb::Rgb,
-        Mesh, Material, MaterialDefaults,
-        Camera, ImageFormat, RenderingBundle, SpriteRender, SpriteSheet, SpriteSheetFormat,
-        Texture,
+        plugins::{RenderPbr3D, RenderToWindow},
+        rendy::{
+            mesh::{Normal, Position, Tangent, TexCoord},
+            util::types::vertex::PosNormTangTex,
+        },
+        shape::Shape,
+        types::DefaultBackend,
+        Camera, ImageFormat, Material, MaterialDefaults, Mesh, RenderingBundle, SpriteRender,
+        SpriteSheet, SpriteSheetFormat, Texture,
     },
-    ui::{RenderUi, UiBundle,Anchor, LineMode, UiText, UiTransform},
+    ui::{Anchor, LineMode, RenderUi, UiBundle, UiText, UiTransform},
     utils::application_root_dir,
-    error::Error,
 };
+use components::boid::*;
+use components::velocity::*;
+use configurations::boid_species::BoidSpeciesConfiguration;
+use std::path::Path;
 
 pub struct GameBegin;
-
 impl SimpleState for GameBegin {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         let world = data.world;
 
+        world.register::<Velocity>(); // only needed while not being accessed in a system
+        world.register::<Boid>();
+
         initialize_camera(world);
-        initialize_sphere(world);
+        initialize_boid_default(world);
+        //initialize_sphere(world);
         initialize_light(world);
     }
 }
@@ -38,14 +53,14 @@ pub fn initialize_camera(world: &mut World) {
     let mut trans = Transform::default();
     trans.set_translation_xyz(0.0, 0.0, 10.0);
 
-    world.create_entity()
+    world
+        .create_entity()
         .with(Camera::standard_3d(1024.0, 768.0))
         .with(trans)
         .build();
 }
 
 pub fn initialize_sphere(world: &mut World) {
-    
     let mesh = world.exec(|loader: AssetLoaderSystemData<'_, Mesh>| {
         loader.load_from_data(
             Shape::Cone(100)
@@ -66,9 +81,12 @@ pub fn initialize_sphere(world: &mut World) {
     });
 
     let mut trans = Transform::default();
-    trans.set_translation_xyz(0.0, 0.0, 0.0).set_rotation_euler(1.0, 2.0, 3.0);
+    trans
+        .set_translation_xyz(0.0, 0.0, 0.0)
+        .set_rotation_euler(1.0, 2.0, 3.0);
 
-    world.create_entity()
+    world
+        .create_entity()
         .with(mesh)
         .with(material)
         .with(trans)
@@ -80,16 +98,13 @@ fn initialize_light(world: &mut World) {
         intensity: 10.0,
         color: Rgb::new(1.0, 1.0, 1.0),
         ..PointLight::default()
-    }.into();
+    }
+    .into();
 
     let mut transform = Transform::default();
     transform.set_translation_xyz(5.0, 5.0, 20.0);
 
-    world
-        .create_entity()
-        .with(light)
-        .with(transform)
-        .build();
+    world.create_entity().with(light).with(transform).build();
 }
 
 fn load_sprite_sheet(world: &mut World) -> Handle<SpriteSheet> {
@@ -116,24 +131,27 @@ fn load_sprite_sheet(world: &mut World) -> Handle<SpriteSheet> {
 
 fn main() -> amethyst::Result<()> {
     amethyst::Logger::from_config(Default::default())
-    //.level_for("gfx_glyph", amethyst::LogLevelFilter::max())
-    .start();
+        //.level_for("gfx_glyph", amethyst::LogLevelFilter::max())
+        .start();
 
     let app_root = application_root_dir()?;
     let config_path = app_root.join("config");
     let display_config_path = config_path.join("display.ron");
     let binding_path = config_path.join("bindings.ron");
+    let species_path = config_path.join("species.ron");
     let assets_dir = app_root.join("assets");
 
+    let species_config = BoidSpeciesConfiguration::load(&species_path)?;
+
     let game_data = GameDataBuilder::default()
+        //.with_resource(species_config)
         .with_bundle(TransformBundle::new())?
-        .with_bundle(InputBundle::<StringBindings>::new()
-            .with_bindings_from_file(binding_path)?)?
+        .with_bundle(InputBundle::<StringBindings>::new().with_bindings_from_file(binding_path)?)?
         .with_bundle(
             RenderingBundle::<DefaultBackend>::new()
                 .with_plugin(
                     RenderToWindow::from_config_path(display_config_path)?
-                        .with_clear([0.0, 0.0, 1.0, 1.0]), // background color
+                        .with_clear([0.4, 0.8, 1.0, 1.0]), // background color
                 )
                 .with_plugin(RenderPbr3D::default()),
         )?;

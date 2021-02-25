@@ -1,20 +1,26 @@
+/*
+
 mod boid;
 use crate::boid::*;
 mod window;
-use crate::window::*;
+//use crate::window::*;
 mod components;
 mod utilities;
 
+*/
+
 use amethyst::{
-    assets::{AssetStorage, Handle, Loader},
+    assets::{AssetStorage, Handle, Loader, AssetLoaderSystemData},
     core::{math::Vector3, timing::Time, transform::{Transform, TransformBundle}},
-    input::InputBundle,
+    input::{InputBundle, StringBindings},
     ecs::{Component, DenseVecStorage,DispatcherBuilder, World},
     prelude::*,
     renderer::{
-        plugins::{RenderFlat2D, RenderToWindow},
+        plugins::{RenderPbr3D, RenderToWindow},
         types::DefaultBackend,
-        rendy::hal::command::ClearColor,sprite::Sprites,
+        rendy::{mesh::*, util::types::vertex::PosNormTangTex},
+        shape::Shape,
+        Mesh, Material, MaterialDefaults,
         Camera, ImageFormat, RenderingBundle, SpriteRender, SpriteSheet, SpriteSheetFormat,
         Texture,
     },
@@ -23,19 +29,56 @@ use amethyst::{
     error::Error,
 };
 
-pub struct Player;
+pub struct GameBegin;
 
-impl SimpleState for Player {
+impl SimpleState for GameBegin {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         let world = data.world;
 
-        let sprite_sheet_handle = load_sprite_sheet(world);
-
-        world.register::<Boid>();
-
-        initialise_boid(world, Vector3::new(500.0, 500.0, 0), sprite_sheet_handle);
-        initialise_camera(world);
+        initialize_camera(world);
+        initialize_sphere(world);
     }
+}
+
+pub fn initialize_camera(world: &mut World) {
+    let mut trans = Transform::default();
+    trans.set_translation_xyz(0.0, 0.0, 10.0);
+
+    world.create_entity()
+        .with(Camera::standard_3d(1024.0, 768.0))
+        .with(trans)
+        .build();
+}
+
+pub fn initialize_sphere(world: &mut World) {
+    
+    let mesh = world.exec(|loader: AssetLoaderSystemData<'_, Mesh>| {
+        loader.load_from_data(
+            Shape::Sphere(100, 100)
+                .generate::<Vec<PosNormTangTex>>(None)
+                .into(),
+            (),
+        )
+    });
+
+    let material_defaults = world.read_resource::<MaterialDefaults>().0.clone();
+    let material = world.exec(|loader: AssetLoaderSystemData<'_, Material>| {
+        loader.load_from_data(
+            Material {
+                ..material_defaults
+            },
+            (),
+        )
+    });
+
+    let mut trans = Transform::default();
+    trans.set_translation_xyz(0.0, 0.0, 0.0);
+
+    world.create_entity()
+        .with(mesh)
+        .with(material)
+        .with(trans)
+        .build();
 }
 
 fn load_sprite_sheet(world: &mut World) -> Handle<SpriteSheet> {
@@ -61,7 +104,9 @@ fn load_sprite_sheet(world: &mut World) -> Handle<SpriteSheet> {
 }
 
 fn main() -> amethyst::Result<()> {
-    amethyst::start_logger(Default::default());
+    amethyst::Logger::from_config(Default::default())
+    //.level_for("gfx_glyph", amethyst::LogLevelFilter::max())
+    .start();
 
     let app_root = application_root_dir()?;
     let config_path = app_root.join("config");
@@ -69,24 +114,20 @@ fn main() -> amethyst::Result<()> {
     let binding_path = config_path.join("bindings.ron");
     let assets_dir = app_root.join("assets");
 
-    let input_bundle = InputBundle::<StringBindings>::new()
-    .with_bindings_from_file(binding_path)?;
-
     let game_data = GameDataBuilder::default()
         .with_bundle(TransformBundle::new())?
-        .with_bundle(input_bundle)?
+        //.with_bundle(InputBundle::<StringBindings>::new()
+        //.with_bindings_from_file(binding_path)?)?
         .with_bundle(
             RenderingBundle::<DefaultBackend>::new()
-                // The RenderToWindow plugin provides all the scaffolding for opening a window and drawing on it
                 .with_plugin(
                     RenderToWindow::from_config_path(display_config_path)?
                         .with_clear([0.0, 0.0, 0.0, 1.0]), // background color
                 )
-                // RenderFlat2D plugin is used to render entities with a `SpriteRender` component.
-                .with_plugin(RenderFlat2D::default()),
+                .with_plugin(RenderPbr3D::default()),
         )?;
 
-    let mut game = Application::new(assets_dir, Player, game_data)?;
+    let mut game = Application::new(assets_dir, GameBegin, game_data)?;
     game.run();
 
     Ok(())

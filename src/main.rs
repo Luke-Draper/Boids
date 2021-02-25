@@ -1,13 +1,4 @@
-/*
-
-mod boid;
-use crate::boid::*;
-mod window;
-//use crate::window::*;
 mod components;
-mod utilities;
-
-*/
 
 use amethyst::{
     assets::{AssetStorage, Handle, Loader, AssetLoaderSystemData},

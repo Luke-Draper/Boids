@@ -1,7 +1,0 @@
-#![enable(implicit_some)]
-Grid((
-    texture_width: 96,
-    texture_height: 256,
-    columns: 3,
-    sprite_count: 24
-))

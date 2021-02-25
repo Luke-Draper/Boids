@@ -1,9 +1,9 @@
 (
     axes: {
-        x: Emulated(pos: Key(Right), neg: Key(Left)),
-        y: Emulated(pos: Key(Up), neg: Key(Down)),
+        "x": Emulated(pos: Key(Right), neg: Key(Left)),
+        "y": Emulated(pos: Key(Up), neg: Key(Down)),
     },
     actions: {
-        flap: [[Key(Space)]],
+        "flap": [[Key(Space)]],
     },
 )

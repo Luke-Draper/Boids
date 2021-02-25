@@ -20,6 +20,8 @@ use amethyst::{
         types::DefaultBackend,
         rendy::{mesh::*, util::types::vertex::PosNormTangTex},
         shape::Shape,
+        light::{Light, PointLight},
+        palette::rgb::Rgb,
         Mesh, Material, MaterialDefaults,
         Camera, ImageFormat, RenderingBundle, SpriteRender, SpriteSheet, SpriteSheetFormat,
         Texture,
@@ -37,6 +39,7 @@ impl SimpleState for GameBegin {
 
         initialize_camera(world);
         initialize_sphere(world);
+        initialize_light(world);
     }
 }
 
@@ -54,8 +57,8 @@ pub fn initialize_sphere(world: &mut World) {
     
     let mesh = world.exec(|loader: AssetLoaderSystemData<'_, Mesh>| {
         loader.load_from_data(
-            Shape::Sphere(100, 100)
-                .generate::<Vec<PosNormTangTex>>(None)
+            Shape::Cone(100)
+                .generate::<(Vec<Position>, Vec<Normal>, Vec<Tangent>, Vec<TexCoord>)>(None)
                 .into(),
             (),
         )
@@ -72,12 +75,29 @@ pub fn initialize_sphere(world: &mut World) {
     });
 
     let mut trans = Transform::default();
-    trans.set_translation_xyz(0.0, 0.0, 0.0);
+    trans.set_translation_xyz(0.0, 0.0, 0.0).set_rotation_euler(1.0, 2.0, 3.0);
 
     world.create_entity()
         .with(mesh)
         .with(material)
         .with(trans)
+        .build();
+}
+
+fn initialize_light(world: &mut World) {
+    let light: Light = PointLight {
+        intensity: 10.0,
+        color: Rgb::new(1.0, 1.0, 1.0),
+        ..PointLight::default()
+    }.into();
+
+    let mut transform = Transform::default();
+    transform.set_translation_xyz(5.0, 5.0, 20.0);
+
+    world
+        .create_entity()
+        .with(light)
+        .with(transform)
         .build();
 }
 
@@ -116,13 +136,13 @@ fn main() -> amethyst::Result<()> {
 
     let game_data = GameDataBuilder::default()
         .with_bundle(TransformBundle::new())?
-        //.with_bundle(InputBundle::<StringBindings>::new()
-        //.with_bindings_from_file(binding_path)?)?
+        .with_bundle(InputBundle::<StringBindings>::new()
+            .with_bindings_from_file(binding_path)?)?
         .with_bundle(
             RenderingBundle::<DefaultBackend>::new()
                 .with_plugin(
                     RenderToWindow::from_config_path(display_config_path)?
-                        .with_clear([0.0, 0.0, 0.0, 1.0]), // background color
+                        .with_clear([0.0, 0.0, 1.0, 1.0]), // background color
                 )
                 .with_plugin(RenderPbr3D::default()),
         )?;
